@@ -1,4 +1,4 @@
-# Simple Rust Neural Network for classyfying digist from the MNIST dataset
+# Simple Rust Neural Network for classifying digist from the MNIST dataset
 
 Hi! My goal for this repo is to get some experience in Rust and ML. Here I will try to implement the Neural Networks
 from [this excellent course](http://neuralnetworksanddeeplearning.com/). At the point in time I'm writing this I'm not
