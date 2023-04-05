@@ -33,7 +33,7 @@ impl Network {
         }
     }
 
-    fn feedforward(&self, input: Array1<f64>) -> Array1<f64> {
+    fn feed_forward(&self, input: Array1<f64>) -> Array1<f64> {
         let mut activation = input;
         for (b, w) in self.biases.iter().zip(self.weights.iter()) {
             activation = w
@@ -45,4 +45,7 @@ impl Network {
         }
         activation
     }
+    fn stochastic_gradient_descent(&self) {}
+    fn update_mini_batch(&self, mini_batch: Vec<(Array1<f64>, Array1<f64>)>, learning_rate: f64) {}
+    fn backpropagation(&self) {}
 }
