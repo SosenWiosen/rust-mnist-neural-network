@@ -12,36 +12,50 @@ fn get_decompressed_data(filepath: &String) -> Result<Vec<u8>, io::Error> {
     file.read_to_end(&mut data)?;
     Ok(data)
 }
+
+fn split_and_format_dataset(
+    dataset: Vec<(u8, Array1<f64>)>,
+) -> (Vec<(Array1<f64>, Array1<f64>)>, Vec<(u8, Array1<f64>)>) {
+    let (train, test) = dataset.split_at(dataset.len() * 9 / 10);
+    let train = train
+        .iter()
+        .map(|(label, values)| -> (Array1<f64>, Array1<f64>) {
+            let label_vector = vectorize_label(label.to_usize().expect("Couldn't convert value!"));
+            (label_vector, values.to_owned())
+        })
+        .collect();
+    (train, test.to_vec())
+}
+
 pub fn get_data(
     filepath: &String,
-) -> Result<Vec<(Array1<f64>, Array1<f64>)>, Box<dyn std::error::Error>> {
+) -> Result<(Vec<(Array1<f64>, Array1<f64>)>, Vec<(u8, Array1<f64>)>), Box<dyn std::error::Error>> {
     let decompressed_data = get_decompressed_data(filepath)?;
     let mut reader = csv::Reader::from_reader(decompressed_data.as_slice());
-    let data: Result<Vec<(Array1<f64>, Array1<f64>)>, _> = reader
+    let data: Result<Vec<(u8, Array1<f64>)>, _> = reader
         .records()
         .map(
-            |record_result| -> Result<(Array1<f64>, Array1<f64>), Box<dyn std::error::Error>> {
+            |record_result| -> Result<(u8, Array1<f64>), Box<dyn std::error::Error>> {
                 let record = record_result?;
                 let mut record_iterator = record.iter();
-                let label_vector =
-                    vectorized_result(record_iterator.next().unwrap().parse::<usize>()?);
+                let label = record_iterator.next().unwrap().parse::<u8>()?;
                 let pixel_values: Result<Array1<f64>, Box<dyn std::error::Error>> = record_iterator
                     .map(|record_value| -> Result<f64, _> {
                         let brightness_int = record_value.parse::<u8>()?;
                         Ok(convert_brightness_to_fraction(brightness_int))
                     })
                     .collect();
-                Ok((label_vector, pixel_values?))
+                Ok((label, pixel_values?))
             },
         )
         .collect();
-    Ok(data?)
+    Ok(split_and_format_dataset(data?))
 }
-fn vectorized_result(num: usize) -> Array1<f64> {
+fn vectorize_label(num: usize) -> Array1<f64> {
     let mut vect = Array1::zeros(10);
     vect[num] = 1.0;
     vect
 }
-fn convert_brightness_to_fraction(brigthness: u8) -> f64 {
-    brigthness.to_f64().unwrap() / 255.0
+fn convert_brightness_to_fraction(brightness: u8) -> f64 {
+    brightness.to_f64().expect("Error converting int to float!") / 255.0
 }

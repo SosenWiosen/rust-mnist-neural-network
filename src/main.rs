@@ -13,7 +13,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     let filepath = &args[1];
-    let data = match get_data(filepath) {
+    let (train, test) = match get_data(filepath) {
         Ok(data) => data,
         Err(_) => panic!("Problem loading the data!"),
     };
