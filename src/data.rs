@@ -3,7 +3,7 @@ use ndarray_rand::rand_distr::num_traits::ToPrimitive;
 use std::fs::File;
 use std::io;
 use std::io::Read;
-pub type VectorLabelPixelsPair = (Array1<f64>, Array1<f64>);
+pub type VectorizedLabelPixelsPair = (Array1<f64>, Array1<f64>);
 pub type LabelPixelsPair = (u8, Array1<f64>);
 
 fn get_decompressed_data(filepath: &String) -> Result<Vec<u8>, io::Error> {
@@ -17,7 +17,7 @@ fn get_decompressed_data(filepath: &String) -> Result<Vec<u8>, io::Error> {
 
 fn split_and_format_dataset(
     dataset: Vec<LabelPixelsPair>,
-) -> (Vec<VectorLabelPixelsPair>, Vec<LabelPixelsPair>) {
+) -> (Vec<VectorizedLabelPixelsPair>, Vec<LabelPixelsPair>) {
     let (train, test) = dataset.split_at(dataset.len() * 9 / 10);
     let train = train
         .iter()
@@ -31,7 +31,7 @@ fn split_and_format_dataset(
 
 pub fn get_data(
     filepath: &String,
-) -> Result<(Vec<VectorLabelPixelsPair>, Vec<LabelPixelsPair>), Box<dyn std::error::Error>> {
+) -> Result<(Vec<VectorizedLabelPixelsPair>, Vec<LabelPixelsPair>), Box<dyn std::error::Error>> {
     let decompressed_data = get_decompressed_data(filepath)?;
     let mut reader = csv::Reader::from_reader(decompressed_data.as_slice());
     let data: Result<Vec<(u8, Array1<f64>)>, _> = reader
