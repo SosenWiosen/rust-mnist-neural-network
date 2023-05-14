@@ -12,7 +12,7 @@ use std::iter::zip;
 pub(crate) struct Network {
     number_of_layers: usize,
     sizes: Vec<usize>,
-    biases: Vec<Array1<f64>>,
+    biases: Vec<Array2<f64>>,
     weights: Vec<Array2<f64>>,
 }
 
@@ -23,7 +23,7 @@ impl Network {
 
         let biases = sizes[1..]
             .iter()
-            .map(|&x| Array::random(x as Ix, distribution))
+            .map(|&x| Array::random((x as Ix, 1), distribution))
             .collect();
         let weights = sizes[..sizes.len()]
             .iter()
@@ -50,17 +50,16 @@ impl Network {
         }
         activation
     }
-    fn stochastic_gradient_descent(
+    pub fn stochastic_gradient_descent(
         &mut self,
         mut training_data: Vec<VectorizedLabelPixelsPair>,
         epochs: u16,
         mini_batch_size: u16,
         eta: f64,
     ) {
-        let training_data_len = training_data.len();
         for i in 0..epochs {
             training_data.shuffle(&mut thread_rng());
-            let mut mini_batches = training_data.chunks(mini_batch_size.to_usize().unwrap());
+            let mini_batches = training_data.chunks(mini_batch_size.to_usize().unwrap());
             for mini_batch in mini_batches {
                 self.update_mini_batch(mini_batch, eta);
             }
@@ -68,9 +67,9 @@ impl Network {
         }
     }
     fn update_mini_batch(&mut self, mini_batch: &[VectorizedLabelPixelsPair], learning_rate: f64) {
-        let mut nabla_b: Vec<Array1<f64>> = Vec::new();
+        let mut nabla_b: Vec<Array2<f64>> = Vec::new();
         for bias in self.biases.iter() {
-            nabla_b.push(Array1::zeros(bias.raw_dim()))
+            nabla_b.push(Array2::zeros(bias.raw_dim()));
         }
         let mut nabla_w: Vec<Array2<f64>> = Vec::new();
         for weight in self.weights.iter() {
@@ -95,24 +94,24 @@ impl Network {
     fn backpropagation(
         &self,
         vector_label_pixels_pair: &VectorizedLabelPixelsPair,
-    ) -> (Vec<Array1<f64>>, Vec<Array2<f64>>) {
-        let mut nabla_b: Vec<Array1<f64>> = Vec::new();
+    ) -> (Vec<Array2<f64>>, Vec<Array2<f64>>) {
+        let mut nabla_b: Vec<Array2<f64>> = Vec::new();
         for bias in self.biases.iter() {
-            nabla_b.push(Array1::zeros(bias.raw_dim()))
+            nabla_b.push(Array2::zeros(bias.raw_dim()));
         }
         let mut nabla_w: Vec<Array2<f64>> = Vec::new();
         for weight in self.weights.iter() {
-            nabla_w.push(Array2::zeros(weight.raw_dim()))
+            nabla_w.push(Array2::zeros(weight.raw_dim()));
         }
 
         //feedforward
         let activation = vector_label_pixels_pair.0.clone();
-        let mut activations: Vec<Array1<f64>> = vec![activation];
-        let mut z_vectors: Vec<Array1<f64>> = Vec::new();
+        let mut activations: Vec<Array2<f64>> = vec![activation];
+        let mut z_vectors: Vec<Array2<f64>> = Vec::new();
         for (b, w) in zip(self.biases.iter(), self.weights.iter()) {
             let z = w.dot(activations.last().unwrap()) + b;
             z_vectors.push(z.clone());
-            let activation = z.iter().map(|x| sigmoid(*x)).collect();
+            let activation = z.map(|x| sigmoid(*x));
             activations.push(activation);
         }
 
@@ -125,24 +124,20 @@ impl Network {
 
         let nabla_w_len = nabla_w.len();
 
-        let x = activations[activations.len() - 2].clone().reversed_axes();
+        let x = activations[activations.len() - 2].t();
         nabla_w[nabla_w_len - 1] = delta.dot(&x);
         for l in 2usize..self.number_of_layers {
             let z = z_vectors[z_vectors.len() - l].clone();
             let sp = z.map(|x| sigmoid_prime(*x));
-            let delta = self.weights[self.weights.len() - l + 1]
-                .clone()
-                .reversed_axes()
-                .dot(&delta)
-                * sp;
+            let delta = self.weights[self.weights.len() - l + 1].t().dot(&delta) * sp;
             let nabla_b_len = nabla_b.len();
             nabla_b[nabla_b_len - l] = delta.clone();
             let nabla_w_len = nabla_w.len();
             nabla_w[nabla_w_len - l] = delta.dot(&activations[activations.len() - l - 1].clone());
         }
-        todo!("finish backpropagation");
+        (nabla_b, nabla_w)
     }
-    fn cost_derivative(&self, output_activations: &Array1<f64>, y: &Array1<f64>) -> Array1<f64> {
+    fn cost_derivative(&self, output_activations: &Array2<f64>, y: &Array2<f64>) -> Array2<f64> {
         output_activations - y
     }
 }

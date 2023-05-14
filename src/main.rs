@@ -17,4 +17,6 @@ fn main() {
         Ok(data) => data,
         Err(_) => panic!("Problem loading the data!"),
     };
+    let mut net = Network::new(vec![784, 30, 10]);
+    net.stochastic_gradient_descent(train, 30, 10, 3.0);
 }
