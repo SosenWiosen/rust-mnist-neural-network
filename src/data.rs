@@ -1,8 +1,11 @@
 use ndarray::{Array1, Array2};
+use ndarray_rand::rand::prelude::SliceRandom;
+use ndarray_rand::rand::thread_rng;
 use ndarray_rand::rand_distr::num_traits::ToPrimitive;
 use std::fs::File;
 use std::io;
 use std::io::Read;
+
 pub type VectorizedLabelPixelsPair = (Array2<f64>, Array2<f64>);
 pub type LabelPixelsPair = (u8, Array2<f64>);
 
@@ -16,9 +19,11 @@ fn get_decompressed_data(filepath: &String) -> Result<Vec<u8>, io::Error> {
 }
 
 fn split_and_format_dataset(
-    dataset: Vec<LabelPixelsPair>,
+    mut dataset: Vec<LabelPixelsPair>,
 ) -> (Vec<VectorizedLabelPixelsPair>, Vec<LabelPixelsPair>) {
-    let (train, test) = dataset.split_at(dataset.len() * 9 / 10);
+    dataset.shuffle(&mut thread_rng());
+    let (test, train) = dataset.split_at(dataset.len() * 5 / 60);
+    println!("train: {}, test: {}", train.len(), test.len());
     let train = train
         .iter()
         .map(|(label, values)| -> (Array2<f64>, Array2<f64>) {
@@ -41,14 +46,15 @@ pub fn get_data(
                 let record = record_result?;
                 let mut record_iterator = record.iter();
                 let label = record_iterator.next().unwrap().parse::<u8>()?;
-                let pixel_values_array: Result<Array1<f64>, Box<dyn std::error::Error>> =
+                let pixel_values_array_result: Result<Array1<f64>, Box<dyn std::error::Error>> =
                     record_iterator
                         .map(|record_value| -> Result<f64, _> {
                             let brightness_int = record_value.parse::<u8>()?;
                             Ok(convert_brightness_to_fraction(brightness_int))
                         })
                         .collect();
-                let pixel_values = pixel_values_array?.into_shape((784, 1))?;
+                let pixel_values_array = pixel_values_array_result?;
+                let pixel_values = pixel_values_array.into_shape((784, 1))?;
                 /*let pixel_values: Result<Array2<f64>, Box<dyn std::error::Error>> = record_iterator
                 .map(|record_value| -> Result<f64, _> {
                     let brightness_int = record_value.parse::<u8>()?;

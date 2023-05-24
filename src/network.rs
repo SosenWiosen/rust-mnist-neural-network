@@ -19,7 +19,7 @@ pub(crate) struct Network {
 impl Network {
     pub(crate) fn new(sizes: Vec<usize>) -> Network {
         let number_of_layers = sizes.len() as usize;
-        let distribution = Normal::new(0., 1.0).unwrap();
+        let distribution = Normal::new(0.0, 1.0).unwrap();
 
         let biases: Vec<Array2<f64>> = sizes[1..]
             .iter()
@@ -41,7 +41,7 @@ impl Network {
     fn feed_forward(&self, input: Array2<f64>) -> Array2<f64> {
         let mut activation = input;
         for (b, w) in self.biases.iter().zip(self.weights.iter()) {
-            activation = w.dot(&activation) + b;
+            activation = (w.dot(&activation) + b).mapv(|val| sigmoid(val));
         }
         activation
     }
@@ -88,10 +88,10 @@ impl Network {
                 .collect();
         }
         self.weights = zip(self.weights.clone(), nabla_w)
-            .map(|(w, nw)| w - (learning_rate / nw.len() as f64) * nw)
+            .map(|(w, nw)| w - (learning_rate / (nw.len() as f64)) * nw)
             .collect();
         self.biases = zip(self.biases.clone(), nabla_b)
-            .map(|(w, nb)| w - (learning_rate / nb.len() as f64) * nb)
+            .map(|(b, nb)| b - (learning_rate / (nb.len() as f64)) * nb)
             .collect();
     }
     fn backpropagation(
@@ -114,13 +114,13 @@ impl Network {
         for (b, w) in zip(self.biases.iter(), self.weights.iter()) {
             let z = w.dot(activations.last().unwrap()) + b;
             z_vectors.push(z.clone());
-            let activation = z.map(|x| sigmoid(*x));
+            let activation = z.mapv(|x| sigmoid(x));
             activations.push(activation);
         }
 
         //backward pass
         let delta = self.cost_derivative(activations.last().unwrap(), &vector_label_pixels_pair.0)
-            * z_vectors.last().unwrap().map(|x| sigmoid_prime(*x));
+            * (z_vectors.last().unwrap().map(|x| sigmoid_prime(*x)));
 
         let nabla_b_len = nabla_b.len();
         nabla_b[nabla_b_len - 1] = delta.clone();
@@ -132,7 +132,7 @@ impl Network {
 
         for l in 2usize..self.number_of_layers {
             let z = z_vectors[z_vectors.len() - l].clone();
-            let sp = z.map(|x| sigmoid_prime(*x));
+            let sp = z.mapv(|x| sigmoid_prime(x));
             let delta = self.weights[self.weights.len() - l + 1].t().dot(&delta) * sp;
             let nabla_b_len = nabla_b.len();
             nabla_b[nabla_b_len - l] = delta.clone();
